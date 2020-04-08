@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>SSE Example</title>
+    <link
+      href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div class="container mx-auto mt-4 font-mono">
+      <h1 class="text-2xl text-gray-800 pb-3">Server Sent Events (SSE)</h1>
+      <h2 class="pb-3">Events</h2>
+      <pre class="border p-3" id="events"></pre>
+    </div>
+    <script type="text/javascript">
+      const target = document.getElementById("events");
+      const sse = new EventSource("/api/events");
+
+      sse.onmessage = function (e) {
+        target.textContent = "message: " + e.data + "\n" + target.textContent;
+      };
+    </script>
+  </body>
+</html>
