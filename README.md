@@ -1,6 +1,6 @@
 # sse-example
 
-This is an example application using [SSE]() with [ExpressJS]().
+This is an example application using [SSE](https://developer.mozilla.org/en-US/docs/Web/API/EventSource) with [ExpressJS](https://expressjs.com/).
 
 ## Running
 

@@ -2,7 +2,7 @@
   "name": "sse-example",
   "version": "1.0.0",
   "author": "Wyatt Johnson",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "scripts": {
     "start": "NODE_ENV=production node lib/index.js",
     "build": "tsc",
