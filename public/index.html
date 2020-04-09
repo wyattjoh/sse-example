@@ -125,6 +125,7 @@
           "/api/messages?author=" + encodeURIComponent(author)
         );
         sse.onmessage = function (e) {
+          console.log(e.data);
           const payload = JSON.parse(e.data);
 
           const author = document.createElement("div");

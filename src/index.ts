@@ -1,44 +1,9 @@
-import express, { Response } from "express";
+import express from "express";
 import path from "path";
 
+import chat from "./chat";
+
 const app = express();
-
-class Chat {
-  public listeners: Response[] = [];
-
-  private send<T>(res: Response, id: number, data: T) {
-    try {
-      res.write(`id: ${id}\ndata: ${JSON.stringify(data)}\n\n`);
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  public broadcast(author: string, color: string, message: string) {
-    const id = Date.now();
-    this.listeners.forEach((listener) => {
-      this.send(listener, id, { author, color, message });
-    });
-  }
-
-  public subscribe(res: Response, author: string) {
-    this.listeners.push(res);
-    chat.broadcast("system", "#a0aec0", `${author} has joined the chat`);
-    res.on("close", () => {
-      // Remove the closed response from the handler.
-      const index = this.listeners.indexOf(res);
-      this.listeners.splice(index, 1);
-
-      chat.broadcast("system", "#a0aec0", `${author} has left the chat`);
-
-      // Terminate the connection.
-      res.end();
-    });
-  }
-}
-
-// Global chat instance.
-const chat = new Chat();
 
 // Respond with SSE.
 app.get("/api/messages", (req, res) => {
