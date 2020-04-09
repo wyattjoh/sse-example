@@ -15,7 +15,7 @@
     >
       <div class="">
         <h1 class="mb-5 text-2xl">Join Brian's SSE Chat</h1>
-        <form id="author-form">
+        <form id="login-form">
           <div class="mb-1">
             <label>Display name</label>
             <input
@@ -160,37 +160,23 @@
         };
       }
 
-      function logout() {
-        // Clear the items from storage.
-        sessionStorage.removeItem("author");
-        sessionStorage.removeItem("color");
-
-        // Update the state.
-        state.author = "";
-        state.color = "";
-
-        document.getElementById("login-container").style.display = "flex";
-        document.getElementById("chat-container").style.display = "none";
-      }
-
-      const logoutButton = document.getElementById("logout");
-      logoutButton.addEventListener("click", () => {
-        logout();
-      });
-
       function login(author, color) {
         // Validate the author.
         if (!author || author.length <= 0) {
-          return;
+          throw new Error("Author is required!");
         }
 
         if (author.toLowerCase() === "system") {
-          return;
+          throw new Error("Nice try!");
         }
 
         // Validate the color.
         if (!color || color.length <= 1) {
-          return;
+          throw new Error("Color is required!");
+        }
+
+        if (!/^#[0-9A-F]{6}$/i.test(color)) {
+          throw new Error("Color code is invalid!");
         }
 
         // Looks good! Let's save these defaults and get going.
@@ -214,18 +200,54 @@
         connect(author);
       }
 
-      const authorForm = document.getElementById("author-form");
+      const authorForm = document.getElementById("login-form");
       authorForm.addEventListener("submit", function (e) {
         e.preventDefault();
 
         const author = authorForm.elements["author"].value;
         const color = "#" + authorForm.elements["color"].value;
 
-        // Try to login!
-        login(author, color);
+        try {
+          // Try to login!
+          login(author, color);
+
+          // We did! Now clear the form fields.
+          authorForm.elements["author"].value = "";
+          authorForm.elements["color"].value = "";
+        } catch (err) {
+          alert(err.message);
+        }
       });
 
-      login(sessionStorage.getItem("author"), sessionStorage.getItem("color"));
+      function logout() {
+        // Clear the items from storage.
+        sessionStorage.removeItem("author");
+        sessionStorage.removeItem("color");
+
+        // Update the state.
+        state.author = "";
+        state.color = "";
+
+        document.getElementById("login-container").style.display = "flex";
+        document.getElementById("chat-container").style.display = "none";
+      }
+
+      const logoutButton = document.getElementById("logout");
+      logoutButton.addEventListener("click", () => {
+        logout();
+      });
+
+      function autoLogin() {
+        const author = sessionStorage.getItem("author");
+        const color = sessionStorage.getItem("color");
+
+        if (author && color) {
+          login(author, color);
+        }
+      }
+
+      // Try to automatically login.
+      autoLogin();
     </script>
   </body>
 </html>
