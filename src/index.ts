@@ -51,7 +51,17 @@ app.use(express.static(path.join(__dirname, "..", "public")));
 const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 3030;
 app.set("port", port);
 
-// Start the server.
-app.listen(port, () => {
-  console.log(`Now listening on *:${port}`);
+async function main() {
+  // Connect the chat client to Pub/Sub.
+  await chat.connect();
+
+  // Start the server.
+  app.listen(port, () => {
+    console.log(`Now listening on *:${port}`);
+  });
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
 });

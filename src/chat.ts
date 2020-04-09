@@ -1,13 +1,47 @@
 import { Response } from "express";
 import Redis from "ioredis";
+import { v4 as uuid } from "uuid";
+
+enum CHANNELS {
+  HISTORY = "chat:history",
+  LIVE = "chat:live",
+}
 
 const SIZE = 50;
-const redis = new Redis(process.env.REDIS_URL || "redis://127.0.0.1:6379");
+const URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
+
+type Listener = Response;
+
+interface Client {
+  author: string;
+  listener: Listener;
+}
 
 class Chat {
-  public listeners: Response[] = [];
+  private readonly clients: Client[] = [];
+  private readonly subscription = new Redis(URL);
+  private readonly redis = new Redis(URL);
+  private readonly clientID = uuid();
 
-  private send(res: Response, id: number, data: string) {
+  public async connect() {
+    await this.subscription.subscribe(CHANNELS.LIVE);
+
+    this.subscription.on("message", (channel, message) => {
+      if (channel !== CHANNELS.LIVE) {
+        return;
+      }
+
+      const { id, data, clientID } = JSON.parse(message);
+      if (clientID === this.clientID) {
+        return;
+      }
+
+      // Send the message to all.
+      this.sendAll(id, data);
+    });
+  }
+
+  private send(res: Listener, id: number, data: string) {
     try {
       res.write(`id: ${id}\ndata: ${data}\n\n`);
     } catch (err) {
@@ -15,49 +49,77 @@ class Chat {
     }
   }
 
-  public broadcast(author: string, color: string, message: string) {
-    const id = Date.now();
-    const data = JSON.stringify({ author, color, message });
-
+  private sendAll(id: number, data: string) {
     // Push to each listener.
-    this.listeners.forEach((listener) => {
-      this.send(listener, id, data);
+    this.clients.forEach(({ listener: res }) => {
+      this.send(res, id, data);
     });
-
-    // Push to preserve in Redis.
-    redis
-      .multi()
-      .lpush("history", data)
-      .ltrim("history", 0, SIZE - 1)
-      .exec();
   }
 
-  private async replay(res: Response) {
-    const history: string[] = await redis.lrange("history", 0, SIZE - 1);
+  public broadcast(author: string, color: string, message: string) {
+    const now = Date.now();
+    const id = now;
+    const data = JSON.stringify({ author, color, message, createdAt: now });
+
+    // Send the message to all.
+    this.sendAll(id, data);
+
+    // Push to preserve in Redis.
+    this.redis
+      .multi()
+      .lpush(CHANNELS.HISTORY, JSON.stringify({ id, data }))
+      .ltrim(CHANNELS.HISTORY, 0, SIZE - 1)
+      .expire(CHANNELS.HISTORY, 5 * 60)
+      .exec();
+
+    // Push to Pub/Sub.
+    this.redis.publish(
+      CHANNELS.LIVE,
+      JSON.stringify({ id, data, clientID: this.clientID })
+    );
+  }
+
+  private async replay(res: Listener) {
+    const history: string[] = await this.redis.lrange(
+      CHANNELS.HISTORY,
+      0,
+      SIZE - 1
+    );
     if (history && history.length > 0) {
       for (let i = history.length; i >= 0; i--) {
-        this.send(res, i, history[i]);
+        try {
+          if (!history[i]) {
+            continue;
+          }
+
+          const { id, data } = JSON.parse(history[i]);
+          this.send(res, id, data);
+        } catch (err) {
+          console.error("could not parse history", history[i], err);
+        }
       }
     }
   }
 
-  public subscribe(res: Response, author: string) {
-    this.listeners.push(res);
+  public subscribe(listener: Listener, author: string) {
+    this.clients.push({ listener, author });
 
     // Replay the history for this client.
-    this.replay(res).then(() => {
+    this.replay(listener).then(() => {
       chat.broadcast("system", "#a0aec0", `${author} has joined the chat`);
     });
 
-    res.on("close", () => {
+    listener.on("close", () => {
       // Remove the closed response from the handler.
-      const index = this.listeners.indexOf(res);
-      this.listeners.splice(index, 1);
+      const index = this.clients.findIndex(
+        (client) => client.listener === listener
+      );
+      this.clients.splice(index, 1);
 
       chat.broadcast("system", "#a0aec0", `${author} has left the chat`);
 
       // Terminate the connection.
-      res.end();
+      listener.end();
     });
   }
 }

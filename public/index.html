@@ -125,7 +125,6 @@
           "/api/messages?author=" + encodeURIComponent(author)
         );
         sse.onmessage = function (e) {
-          console.log(e.data);
           const payload = JSON.parse(e.data);
 
           const author = document.createElement("div");
@@ -146,7 +145,7 @@
 
           const time = document.createElement("div");
           time.className = "text-gray-300 whitespace-no-wrap";
-          time.innerText = new Date().toLocaleTimeString();
+          time.innerText = new Date(payload.createdAt).toLocaleTimeString();
 
           const container = document.createElement("div");
           container.className = "mb-1 flex justify-between";
